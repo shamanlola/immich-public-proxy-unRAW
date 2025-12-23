@@ -71,35 +71,35 @@ class LGallery {
       const filename = downloadBtn.getAttribute('download')
       if (!isRawFile(filename)) return
 
+      console.log('Replacing download button for RAW file:', filename)
+
       // Mark as replaced to avoid duplicate processing
       downloadBtn.dataset.rawReplaced = 'true'
 
-      // Hide the original download button
-      downloadBtn.style.display = 'none'
-
-      // Create custom download button
-      const customBtn = document.createElement('a')
-      customBtn.className = 'lg-download lg-icon lg-download-raw'
-      customBtn.setAttribute('aria-label', 'Download')
-      customBtn.style.cssText = downloadBtn.style.cssText
-      customBtn.innerHTML = downloadBtn.innerHTML
+      // Remove the href and download attributes to prevent auto-download
+      const originalHref = downloadBtn.getAttribute('href')
+      downloadBtn.removeAttribute('href')
+      downloadBtn.removeAttribute('download')
+      downloadBtn.style.cursor = 'pointer'
 
       // Add click handler for modal
-      customBtn.addEventListener('click', async (e) => {
+      downloadBtn.addEventListener('click', async (e) => {
         e.preventDefault()
         e.stopPropagation()
+
+        console.log('RAW download button clicked')
 
         const modal = new DownloadModal()
         const choice = await modal.show({ isIndividual: true })
 
+        console.log('User chose:', choice)
+
         if (choice === 'raw') {
           // Download original RAW
-          const rawUrl = downloadBtn.getAttribute('href')
-          window.location.href = rawUrl
+          window.location.href = originalHref
         } else if (choice === 'jpeg') {
           // Download JPEG preview
-          const rawUrl = downloadBtn.getAttribute('href')
-          const jpegUrl = rawUrl.replace('/original', '/preview')
+          const jpegUrl = originalHref.replace('/original', '/preview')
           const jpegFilename = filename.replace(/\.\w+$/, '.jpg')
 
           const link = document.createElement('a')
@@ -110,19 +110,21 @@ class LGallery {
           document.body.removeChild(link)
         }
       })
-
-      // Insert custom button after original
-      downloadBtn.parentNode.insertBefore(customBtn, downloadBtn.nextSibling)
     }
 
-    // Replace button when gallery opens and on slide changes
-    this.lightGallery.on('lgAfterOpen', () => {
-      setTimeout(replaceDownloadButton, 100)
+    // Use MutationObserver to watch for download button being added
+    const observer = new MutationObserver(() => {
+      replaceDownloadButton()
     })
 
-    this.lightGallery.on('lgAfterSlide', () => {
-      setTimeout(replaceDownloadButton, 100)
+    // Start observing the document for added nodes
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
     })
+
+    // Also try to replace immediately in case it already exists
+    setTimeout(replaceDownloadButton, 500)
   }
 
   /**
