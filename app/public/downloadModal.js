@@ -43,6 +43,9 @@ class DownloadModal {
       border: 1px solid #ccc;
       padding: 0;
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      font-family: arial;
+      background-color: rgb(17, 17, 17);
+      color: white;
     `
 
     if (isIndividual) {
@@ -68,7 +71,7 @@ class DownloadModal {
             </div>
           </div>
           <footer style="padding: 1rem; border-top: 1px solid #e0e0e0; display: flex; justify-content: flex-end;">
-            <button class="download-cancel" style="background: #f0f0f0; color: #333;">Cancel</button>
+            <button class="download-cancel" style="background: #f0f0f0; color: #333; border-radius: 7px; width: 100%; height: 40px;">Cancel</button>
           </footer>
         </article>
       `
@@ -99,7 +102,7 @@ class DownloadModal {
             </div>
           </div>
           <footer style="padding: 1rem; border-top: 1px solid #e0e0e0; display: flex; justify-content: flex-end;">
-            <button class="download-cancel" style="background: #f0f0f0; color: #333;">Cancel</button>
+            <button class="download-cancel" style="background: #f0f0f0; color: #333; border-radius: 7px; width: 100%; height: 40px;">Cancel</button>
           </footer>
         </article>
       `
