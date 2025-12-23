@@ -206,10 +206,6 @@ class Render {
         // Skip non-RAW files when RAW-only filter is active
         continue
       }
-      if (filter === 'jpeg' && isRaw) {
-        // Skip RAW files when JPEG-only filter is active
-        continue
-      }
 
       // Determine URL and filename based on filter
       let url: string
