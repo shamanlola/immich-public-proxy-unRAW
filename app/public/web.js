@@ -48,6 +48,21 @@ class LGallery {
    * Intercept download clicks for RAW files and show modal
    */
   setupDownloadInterception () {
+    // RAW file extensions to detect
+    const RAW_EXTENSIONS = [
+      '.dng', '.arw', '.cr2', '.cr3', '.nef', '.nrw',
+      '.raf', '.orf', '.rw2', '.pef', '.sr2', '.x3f',
+      '.dcr', '.kdc', '.erf', '.mrw', '.3fr', '.mef',
+      '.mos', '.iiq', '.r3d', '.raw', '.srw'
+    ]
+
+    // Function to check if filename is RAW
+    const isRawFile = (filename) => {
+      if (!filename) return false
+      const ext = filename.toLowerCase().match(/\.\w+$/)?.[0]
+      return RAW_EXTENSIONS.includes(ext)
+    }
+
     // Listen for lightGallery's afterOpen event to intercept download button
     this.lightGallery.on('lgAfterOpen', () => {
       setTimeout(() => {
@@ -56,15 +71,11 @@ class LGallery {
           downloadBtn.dataset.intercepted = 'true'
 
           downloadBtn.addEventListener('click', async (e) => {
-            const currentIndex = lgallery.lightGallery.index
-            const currentItem = lgallery.items[currentIndex]
+            // Get the download filename from the download attribute
+            const filename = downloadBtn.getAttribute('download')
 
-            // Check if this is a RAW asset
-            const rawAsset = window.rawAssets?.find(asset =>
-              asset.downloadUrl && currentItem?.downloadUrl?.includes(asset.id)
-            )
-
-            if (rawAsset?.isRaw) {
+            // Check if this is a RAW file
+            if (isRawFile(filename)) {
               e.preventDefault()
               e.stopPropagation()
 
@@ -74,11 +85,21 @@ class LGallery {
 
               if (choice === 'raw') {
                 // Download original RAW
-                window.location.href = rawAsset.downloadUrl
+                const rawUrl = downloadBtn.getAttribute('href')
+                window.location.href = rawUrl
               } else if (choice === 'jpeg') {
                 // Download JPEG preview - replace /original with /preview
-                const jpegUrl = rawAsset.downloadUrl.replace('/original', '/preview')
-                window.location.href = jpegUrl
+                const rawUrl = downloadBtn.getAttribute('href')
+                const jpegUrl = rawUrl.replace('/original', '/preview')
+                // Also update filename to .jpg
+                const jpegFilename = filename.replace(/\.\w+$/, '.jpg')
+                // Create temporary link to trigger download
+                const link = document.createElement('a')
+                link.href = jpegUrl
+                link.download = jpegFilename
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
               }
             }
           })
