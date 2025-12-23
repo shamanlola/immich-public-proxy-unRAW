@@ -116,7 +116,7 @@ class Immich {
 
     if (request.mode === 'download' && canDownload(link)) {
       // Download all assets as a zip file
-      await render.downloadAll(res, link)
+      await render.downloadAll(res, link, request.downloadFilter)
     } else if (link.assets.length === 1) {
       // This is an individual item (not a gallery)
       log('Serving link ' + request.key)

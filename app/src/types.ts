@@ -74,6 +74,7 @@ export interface IncomingShareRequest {
   mode?: string;
   size?: ImageSize;
   range?: string;
+  downloadFilter?: string;
 }
 
 export enum DownloadAll {

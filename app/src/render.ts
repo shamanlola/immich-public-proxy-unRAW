@@ -5,6 +5,7 @@ import { canDownload, getConfigOption } from './functions'
 import archiver from 'archiver'
 import { respondToInvalidRequest } from './invalidRequestHandler'
 import { sanitize } from './includes/sanitize'
+import { isRawAsset } from './utils/rawDetection'
 
 class Render {
   lgConfig
@@ -146,11 +147,23 @@ class Render {
         '</a>'
       ].join('')
 
+      const isRaw = isRawAsset(asset)
+
       return {
         html: itemHtml,
         thumbnailUrl,
-        previewUrl
+        previewUrl,
+        assetId: asset.id,
+        isRaw,
+        downloadUrl
       }
+    }))
+
+    // Create RAW detection data for frontend
+    const rawDetectionData = items.map(item => ({
+      id: item.assetId,
+      isRaw: item.isRaw,
+      downloadUrl: item.downloadUrl
     }))
 
     res.render('gallery', {
@@ -161,7 +174,8 @@ class Render {
       path: '/share/' + share.key,
       showDownload: canDownload(share),
       showTitle: getConfigOption('ipp.showGalleryTitle', false),
-      lgConfig: getConfigOption('lightGallery', {})
+      lgConfig: getConfigOption('lightGallery', {}),
+      rawDetectionData
     })
   }
 
@@ -174,26 +188,86 @@ class Render {
 
   /**
    * Download all assets as a zip file
+   * @param filter - Optional filter: 'raw' (RAW only), 'jpeg' (JPEG only), 'both' (both RAW and JPEG)
    */
-  async downloadAll (res: Response, share: SharedLink) {
+  async downloadAll (res: Response, share: SharedLink, filter?: string) {
     res.setHeader('Content-Type', 'application/zip')
     let filename = (sanitize(this.title(share)) || 'photos') + '.zip'
     filename = encodeURI(filename)
     res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${filename}`)
     const archive = archiver('zip', { zlib: { level: 6 } })
     archive.pipe(res)
+
     for (const asset of share.assets) {
-      const url = immich.buildUrl(immich.apiUrl() + '/assets/' + encodeURIComponent(asset.id) + '/original', {
-        key: asset.key,
-        password: asset.password
-      })
+      const isRaw = isRawAsset(asset)
+
+      // Apply filter logic
+      if (filter === 'raw' && !isRaw) {
+        // Skip non-RAW files when RAW-only filter is active
+        continue
+      }
+      if (filter === 'jpeg' && isRaw) {
+        // Skip RAW files when JPEG-only filter is active
+        continue
+      }
+
+      // Determine URL and filename based on filter
+      let url: string
+      let assetFilename: string
+
+      if (filter === 'both' && isRaw) {
+        // Include both RAW and JPEG for RAW files
+        // First, add the RAW file
+        const rawUrl = immich.buildUrl(immich.apiUrl() + '/assets/' + encodeURIComponent(asset.id) + '/original', {
+          key: asset.key,
+          password: asset.password
+        })
+        const rawData = await fetch(rawUrl)
+        if (rawData.ok) {
+          archive.append(Buffer.from(await rawData.arrayBuffer()), { name: this.getFilename(asset) })
+        } else {
+          console.warn(`Failed to fetch RAW asset: ${asset.id}`)
+        }
+
+        // Then, add the JPEG preview with modified filename
+        const jpegUrl = immich.buildUrl(immich.apiUrl() + '/assets/' + encodeURIComponent(asset.id) + '/thumbnail', {
+          key: asset.key,
+          password: asset.password,
+          size: 'preview'
+        })
+        const jpegData = await fetch(jpegUrl)
+        if (jpegData.ok) {
+          const jpegFilename = this.getFilename(asset).replace(/\.\w+$/, '_preview.jpg')
+          archive.append(Buffer.from(await jpegData.arrayBuffer()), { name: jpegFilename })
+        } else {
+          console.warn(`Failed to fetch JPEG preview for asset: ${asset.id}`)
+        }
+        continue
+      } else if (filter === 'jpeg' || (filter && isRaw)) {
+        // For JPEG-only filter or when we need JPEG version of RAW
+        url = immich.buildUrl(immich.apiUrl() + '/assets/' + encodeURIComponent(asset.id) + '/thumbnail', {
+          key: asset.key,
+          password: asset.password,
+          size: 'preview'
+        })
+        // Change extension to .jpg
+        assetFilename = this.getFilename(asset).replace(/\.\w+$/, '.jpg')
+      } else {
+        // Default: use original file
+        url = immich.buildUrl(immich.apiUrl() + '/assets/' + encodeURIComponent(asset.id) + '/original', {
+          key: asset.key,
+          password: asset.password
+        })
+        assetFilename = this.getFilename(asset)
+      }
+
       const data = await fetch(url)
       // Check the response for validity
       if (!data.ok) {
         console.warn(`Failed to fetch asset: ${asset.id}`)
         continue
       }
-      archive.append(Buffer.from(await data.arrayBuffer()), { name: this.getFilename(asset) })
+      archive.append(Buffer.from(await data.arrayBuffer()), { name: assetFilename })
     }
     await archive.finalize()
     archive.on('end', () => res.end())

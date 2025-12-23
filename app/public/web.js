@@ -33,12 +33,58 @@ class LGallery {
     }, params.lgConfig))
     this.items = params.items
 
+    // Set up RAW download interception for individual images
+    this.setupDownloadInterception()
+
     let timeout
     window.addEventListener('scroll', () => {
       if (timeout) clearTimeout(timeout)
       timeout = setTimeout(lgallery.handleScroll, 100)
     })
     lgallery.handleScroll()
+  }
+
+  /**
+   * Intercept download clicks for RAW files and show modal
+   */
+  setupDownloadInterception () {
+    // Listen for lightGallery's afterOpen event to intercept download button
+    this.lightGallery.on('lgAfterOpen', () => {
+      setTimeout(() => {
+        const downloadBtn = document.querySelector('.lg-download')
+        if (downloadBtn && !downloadBtn.dataset.intercepted) {
+          downloadBtn.dataset.intercepted = 'true'
+
+          downloadBtn.addEventListener('click', async (e) => {
+            const currentIndex = lgallery.lightGallery.index
+            const currentItem = lgallery.items[currentIndex]
+
+            // Check if this is a RAW asset
+            const rawAsset = window.rawAssets?.find(asset =>
+              asset.downloadUrl && currentItem?.downloadUrl?.includes(asset.id)
+            )
+
+            if (rawAsset?.isRaw) {
+              e.preventDefault()
+              e.stopPropagation()
+
+              // Show modal
+              const modal = new DownloadModal()
+              const choice = await modal.show({ isIndividual: true })
+
+              if (choice === 'raw') {
+                // Download original RAW
+                window.location.href = rawAsset.downloadUrl
+              } else if (choice === 'jpeg') {
+                // Download JPEG preview - replace /original with /preview
+                const jpegUrl = rawAsset.downloadUrl.replace('/original', '/preview')
+                window.location.href = jpegUrl
+              }
+            }
+          })
+        }
+      }, 100)
+    })
   }
 
   /**

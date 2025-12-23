@@ -11,6 +11,7 @@ import { Asset, AssetType, ImageSize, KeyType } from './types'
 import { addResponseHeaders, getConfigOption, toString } from './functions'
 import { decrypt, encrypt } from './encrypt'
 import { respondToInvalidRequest } from './invalidRequestHandler'
+import { isRawAsset } from './utils/rawDetection'
 
 // Extend the Request type with a `password` property
 declare module 'express-serve-static-core' {
@@ -86,7 +87,8 @@ app.get('/:shareType(share|s)/:key/:mode(download)?', decodeCookie, async (req, 
       key: req.params.key,
       keyType,
       mode: req.params.mode,
-      password: req.password
+      password: req.password,
+      downloadFilter: toString(req.query.filter)
     }, res)
   }
 })
@@ -104,6 +106,29 @@ app.post('/share/unlock', async (req, res) => {
     }))
   }
   res.send()
+})
+
+/*
+ * [ROUTE] Get download info for a shared link (checks for RAW files)
+ * Used by the frontend to determine whether to show the download format modal
+ */
+app.get('/share/:key/download-info', decodeCookie, async (req, res) => {
+  const sharedLinkRes = await immich.getShareByKey(req.params.key, req.password)
+
+  if (!sharedLinkRes.valid || !sharedLinkRes.link) {
+    res.status(404).json({ error: 'Share not found' })
+    return
+  }
+
+  const link = sharedLinkRes.link
+  const hasRaw = link.assets.some(asset => isRawAsset(asset))
+  const hasNonRaw = link.assets.some(asset => !isRawAsset(asset))
+
+  res.json({
+    hasRaw,
+    hasNonRaw,
+    totalAssets: link.assets.length
+  })
 })
 
 /*

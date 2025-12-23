@@ -26,9 +26,9 @@
     if (showDownload) {
     %>
         <div id="download-all">
-            <a href="<%- path %>/download" title="Download all"><img src="/share/static/images/download-all.svg"
-                                                                     height="24"
-                                                                     width="24" alt="Download all"></a>
+            <button id="download-all-btn" title="Download all" style="background: none; border: none; cursor: pointer; padding: 0;">
+                <img src="/share/static/images/download-all.svg" height="24" width="24" alt="Download all">
+            </button>
         </div>
     <% } %>
 </div>
@@ -40,6 +40,7 @@
     <% }) %>
 </div>
 <div id="loading-spinner"><span class="loader"></span></div>
+<script src="/share/static/downloadModal.js"></script>
 <script src="/share/static/web.js"></script>
 <script src="/share/static/lg/lightgallery.min.js"></script>
 <script src="/share/static/lg/lg-fullscreen.min.js"></script>
@@ -47,6 +48,9 @@
 <script src="/share/static/lg/lg-video.min.js"></script>
 <script src="/share/static/lg/lg-zoom.min.js"></script>
 <script type="text/javascript">
+  // Expose RAW detection data to JavaScript
+  window.rawAssets = <%- JSON.stringify(rawDetectionData) %>
+
   lgallery.init(<%- JSON.stringify({
       lgConfig,
       items,
@@ -58,6 +62,38 @@
   if (thumbs.length >= openItem) {
     thumbs[openItem - 1].click()
   }
+  <% } %>
+
+  // Bulk download handler
+  <% if (showDownload) { %>
+  document.getElementById('download-all-btn')?.addEventListener('click', async () => {
+    try {
+      // Fetch download info
+      const infoRes = await fetch('<%- path %>/download-info')
+      const info = await infoRes.json()
+
+      if (info.hasRaw) {
+        // Show modal
+        const modal = new DownloadModal()
+        const choice = await modal.show({
+          isIndividual: false,
+          hasRawFiles: info.hasRaw,
+          hasJpegFiles: info.hasNonRaw
+        })
+
+        if (choice && choice !== 'cancel') {
+          window.location.href = '<%- path %>/download?filter=' + choice
+        }
+      } else {
+        // No RAW files, proceed with normal download
+        window.location.href = '<%- path %>/download'
+      }
+    } catch (error) {
+      console.error('Download error:', error)
+      // Fallback to direct download
+      window.location.href = '<%- path %>/download'
+    }
+  })
   <% } %>
 </script>
 </body>
