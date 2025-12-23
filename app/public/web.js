@@ -45,7 +45,7 @@ class LGallery {
   }
 
   /**
-   * Intercept download clicks for RAW files and show modal
+   * Replace download button for RAW files with custom modal-triggered button
    */
   setupDownloadInterception () {
     // RAW file extensions to detect
@@ -63,46 +63,66 @@ class LGallery {
       return RAW_EXTENSIONS.includes(ext)
     }
 
-    // Use event delegation on document to catch all download button clicks
-    document.addEventListener('click', async (e) => {
-      // Check if the clicked element or its parent is a download button
-      const downloadBtn = e.target.closest('.lg-download')
+    // Function to replace download button for RAW files
+    const replaceDownloadButton = () => {
+      const downloadBtn = document.querySelector('.lg-download')
+      if (!downloadBtn || downloadBtn.dataset.rawReplaced) return
 
-      if (downloadBtn) {
-        // Get the download filename from the download attribute
-        const filename = downloadBtn.getAttribute('download')
+      const filename = downloadBtn.getAttribute('download')
+      if (!isRawFile(filename)) return
 
-        // Check if this is a RAW file
-        if (isRawFile(filename)) {
-          e.preventDefault()
-          e.stopPropagation()
-          e.stopImmediatePropagation()
+      // Mark as replaced to avoid duplicate processing
+      downloadBtn.dataset.rawReplaced = 'true'
 
-          // Show modal
-          const modal = new DownloadModal()
-          const choice = await modal.show({ isIndividual: true })
+      // Hide the original download button
+      downloadBtn.style.display = 'none'
 
-          if (choice === 'raw') {
-            // Download original RAW
-            const rawUrl = downloadBtn.getAttribute('href')
-            window.location.href = rawUrl
-          } else if (choice === 'jpeg') {
-            // Download JPEG preview - replace /original with /preview
-            const rawUrl = downloadBtn.getAttribute('href')
-            const jpegUrl = rawUrl.replace('/original', '/preview')
-            // Also update filename to .jpg
-            const jpegFilename = filename.replace(/\.\w+$/, '.jpg')
-            // Create temporary link to trigger download
-            const link = document.createElement('a')
-            link.href = jpegUrl
-            link.download = jpegFilename
-            document.body.appendChild(link)
-            link.click()
-            document.body.removeChild(link)
-          }
+      // Create custom download button
+      const customBtn = document.createElement('a')
+      customBtn.className = 'lg-download lg-icon lg-download-raw'
+      customBtn.setAttribute('aria-label', 'Download')
+      customBtn.style.cssText = downloadBtn.style.cssText
+      customBtn.innerHTML = downloadBtn.innerHTML
+
+      // Add click handler for modal
+      customBtn.addEventListener('click', async (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+
+        const modal = new DownloadModal()
+        const choice = await modal.show({ isIndividual: true })
+
+        if (choice === 'raw') {
+          // Download original RAW
+          const rawUrl = downloadBtn.getAttribute('href')
+          window.location.href = rawUrl
+        } else if (choice === 'jpeg') {
+          // Download JPEG preview
+          const rawUrl = downloadBtn.getAttribute('href')
+          const jpegUrl = rawUrl.replace('/original', '/preview')
+          const jpegFilename = filename.replace(/\.\w+$/, '.jpg')
+
+          const link = document.createElement('a')
+          link.href = jpegUrl
+          link.download = jpegFilename
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
         }
-      }
-    }, true) // Use capture phase to intercept before lightGallery
+      })
+
+      // Insert custom button after original
+      downloadBtn.parentNode.insertBefore(customBtn, downloadBtn.nextSibling)
+    }
+
+    // Replace button when gallery opens and on slide changes
+    this.lightGallery.on('lgAfterOpen', () => {
+      setTimeout(replaceDownloadButton, 100)
+    })
+
+    this.lightGallery.on('lgAfterSlide', () => {
+      setTimeout(replaceDownloadButton, 100)
+    })
   }
 
   /**
