@@ -48,6 +48,8 @@ class LGallery {
    * Replace download button for RAW files with custom modal-triggered button
    */
   setupDownloadInterception () {
+    console.log('setupDownloadInterception called')
+
     // RAW file extensions to detect
     const RAW_EXTENSIONS = [
       '.dng', '.arw', '.cr2', '.cr3', '.nef', '.nrw',
@@ -66,12 +68,26 @@ class LGallery {
     // Function to replace download button for RAW files
     const replaceDownloadButton = () => {
       const downloadBtn = document.querySelector('.lg-download')
-      if (!downloadBtn || downloadBtn.dataset.rawReplaced) return
+
+      if (!downloadBtn) {
+        console.log('No download button found')
+        return
+      }
+
+      if (downloadBtn.dataset.rawReplaced) {
+        console.log('Button already replaced')
+        return
+      }
 
       const filename = downloadBtn.getAttribute('download')
-      if (!isRawFile(filename)) return
+      console.log('Download button found, filename:', filename)
 
-      console.log('Replacing download button for RAW file:', filename)
+      if (!isRawFile(filename)) {
+        console.log('Not a RAW file, skipping')
+        return
+      }
+
+      console.log('✓ Replacing download button for RAW file:', filename)
 
       // Mark as replaced to avoid duplicate processing
       downloadBtn.dataset.rawReplaced = 'true'
@@ -87,12 +103,12 @@ class LGallery {
         e.preventDefault()
         e.stopPropagation()
 
-        console.log('RAW download button clicked')
+        console.log('✓ RAW download button clicked')
 
         const modal = new DownloadModal()
         const choice = await modal.show({ isIndividual: true })
 
-        console.log('User chose:', choice)
+        console.log('✓ User chose:', choice)
 
         if (choice === 'raw') {
           // Download original RAW
@@ -112,19 +128,13 @@ class LGallery {
       })
     }
 
-    // Use MutationObserver to watch for download button being added
-    const observer = new MutationObserver(() => {
-      replaceDownloadButton()
-    })
+    // Poll for the button every 250ms
+    setInterval(replaceDownloadButton, 250)
 
-    // Start observing the document for added nodes
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    })
-
-    // Also try to replace immediately in case it already exists
+    // Also try immediately
+    setTimeout(replaceDownloadButton, 100)
     setTimeout(replaceDownloadButton, 500)
+    setTimeout(replaceDownloadButton, 1000)
   }
 
   /**
