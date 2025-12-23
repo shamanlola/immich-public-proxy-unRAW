@@ -63,49 +63,46 @@ class LGallery {
       return RAW_EXTENSIONS.includes(ext)
     }
 
-    // Listen for lightGallery's afterOpen event to intercept download button
-    this.lightGallery.on('lgAfterOpen', () => {
-      setTimeout(() => {
-        const downloadBtn = document.querySelector('.lg-download')
-        if (downloadBtn && !downloadBtn.dataset.intercepted) {
-          downloadBtn.dataset.intercepted = 'true'
+    // Use event delegation on document to catch all download button clicks
+    document.addEventListener('click', async (e) => {
+      // Check if the clicked element or its parent is a download button
+      const downloadBtn = e.target.closest('.lg-download')
 
-          downloadBtn.addEventListener('click', async (e) => {
-            // Get the download filename from the download attribute
-            const filename = downloadBtn.getAttribute('download')
+      if (downloadBtn) {
+        // Get the download filename from the download attribute
+        const filename = downloadBtn.getAttribute('download')
 
-            // Check if this is a RAW file
-            if (isRawFile(filename)) {
-              e.preventDefault()
-              e.stopPropagation()
+        // Check if this is a RAW file
+        if (isRawFile(filename)) {
+          e.preventDefault()
+          e.stopPropagation()
+          e.stopImmediatePropagation()
 
-              // Show modal
-              const modal = new DownloadModal()
-              const choice = await modal.show({ isIndividual: true })
+          // Show modal
+          const modal = new DownloadModal()
+          const choice = await modal.show({ isIndividual: true })
 
-              if (choice === 'raw') {
-                // Download original RAW
-                const rawUrl = downloadBtn.getAttribute('href')
-                window.location.href = rawUrl
-              } else if (choice === 'jpeg') {
-                // Download JPEG preview - replace /original with /preview
-                const rawUrl = downloadBtn.getAttribute('href')
-                const jpegUrl = rawUrl.replace('/original', '/preview')
-                // Also update filename to .jpg
-                const jpegFilename = filename.replace(/\.\w+$/, '.jpg')
-                // Create temporary link to trigger download
-                const link = document.createElement('a')
-                link.href = jpegUrl
-                link.download = jpegFilename
-                document.body.appendChild(link)
-                link.click()
-                document.body.removeChild(link)
-              }
-            }
-          })
+          if (choice === 'raw') {
+            // Download original RAW
+            const rawUrl = downloadBtn.getAttribute('href')
+            window.location.href = rawUrl
+          } else if (choice === 'jpeg') {
+            // Download JPEG preview - replace /original with /preview
+            const rawUrl = downloadBtn.getAttribute('href')
+            const jpegUrl = rawUrl.replace('/original', '/preview')
+            // Also update filename to .jpg
+            const jpegFilename = filename.replace(/\.\w+$/, '.jpg')
+            // Create temporary link to trigger download
+            const link = document.createElement('a')
+            link.href = jpegUrl
+            link.download = jpegFilename
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+          }
         }
-      }, 100)
-    })
+      }
+    }, true) // Use capture phase to intercept before lightGallery
   }
 
   /**
