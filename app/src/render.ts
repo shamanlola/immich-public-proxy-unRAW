@@ -239,8 +239,8 @@ class Render {
           console.warn(`Failed to fetch JPEG preview for asset: ${asset.id}`)
         }
         continue
-      } else if (filter === 'jpeg' || (filter && isRaw)) {
-        // For JPEG-only filter or when we need JPEG version of RAW
+      } else if (filter === 'jpeg' && isRaw) {
+        // For JPEG-only filter when file is RAW
         url = immich.buildUrl(immich.apiUrl() + '/assets/' + encodeURIComponent(asset.id) + '/thumbnail', {
           key: asset.key,
           password: asset.password,
